@@ -826,7 +826,7 @@ namespace xivModdingFramework.SqPack.FileTypes
                 {
                     data = br.ReadBytes(partCompSize);
                     readBlockPadding();
-                    task = IOUtil.Decompressor(data, partDecompSize);
+                    task = Task.Run(() => IOUtil.Decompressor(data, partDecompSize));
                 }
 
                 tasks.Add(task);
@@ -837,14 +837,13 @@ namespace xivModdingFramework.SqPack.FileTypes
 
         // Completes all provided tasks from BeginReadCompressedBlocks and writes them sequentially in to destBuffer
         // Returns the number of bytes written in to destBuffer
-        public int CompleteReadCompressedBlocks(List<Task<byte[]>> tasks, byte[] destBuffer, int destOffset)
+        public async Task<int> CompleteReadCompressedBlocks(List<Task<byte[]>> tasks, byte[] destBuffer, int destOffset)
         {
             int currentOffset = destOffset;
 
             foreach (var task in tasks)
             {
-                task.Wait();
-                var result = task.Result;
+                var result = await task;
                 result.CopyTo(destBuffer, currentOffset);
                 currentOffset += result.Length;
             }
@@ -996,21 +995,21 @@ namespace xivModdingFramework.SqPack.FileTypes
                         var indexOffsetRealSizes = new uint[_VertexSegments];
 
                         // Vertex and Model Headers
-                        decompOffset += CompleteReadCompressedBlocks(vertexInfoData, decompressedData, decompOffset);
-                        decompOffset += CompleteReadCompressedBlocks(modelInfoData, decompressedData, decompOffset);
+                        decompOffset += await CompleteReadCompressedBlocks(vertexInfoData, decompressedData, decompOffset);
+                        decompOffset += await CompleteReadCompressedBlocks(modelInfoData, decompressedData, decompOffset);
 
                         for(int i = 0; i < _VertexSegments; i++)
                         {
                             // Geometry data in LoD order.
                             // Mark the real uncompressed offsets and sizes on the way through.
                             vertexBufferUncompressedOffsets[i] = (uint)decompOffset - (uint)baseHeaderLength;
-                            vertexBufferRealSizes[i] = (uint)CompleteReadCompressedBlocks(vertexBuffers[i], decompressedData, decompOffset);
+                            vertexBufferRealSizes[i] = (uint)await CompleteReadCompressedBlocks(vertexBuffers[i], decompressedData, decompOffset);
                             decompOffset += (int)vertexBufferRealSizes[i];
 
-                            decompOffset += CompleteReadCompressedBlocks(edgeBuffers[i], decompressedData, decompOffset);
+                            decompOffset += await CompleteReadCompressedBlocks(edgeBuffers[i], decompressedData, decompOffset);
 
                             indexBufferUncompressedOffsets[i] = (uint)decompOffset - (uint)baseHeaderLength;
-                            indexOffsetRealSizes[i] = (uint)CompleteReadCompressedBlocks(indexBuffers[i], decompressedData, decompOffset);
+                            indexOffsetRealSizes[i] = (uint)await CompleteReadCompressedBlocks(indexBuffers[i], decompressedData, decompOffset);
                             decompOffset += (int)indexOffsetRealSizes[i];
                         }
 
@@ -1455,7 +1454,7 @@ namespace xivModdingFramework.SqPack.FileTypes
 
                         for (int i = 0; i < xivTex.MipMapCount; i++)
                         {
-                            decompOffset += CompleteReadCompressedBlocks(mipData[i], decompressedData, decompOffset);
+                            decompOffset += await CompleteReadCompressedBlocks(mipData[i], decompressedData, decompOffset);
                         }
                     }
                 });
