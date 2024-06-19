@@ -216,6 +216,7 @@ namespace xivModdingFramework.Models.ModelTextures
             var dataLength = normalPixels != null ? normalPixels.Length : diffusePixels.Length;
             var shaderFn = GetShaderMapper(GetCustomColors(), mtrl, settings);
             bool invertNormalGreen = colors.InvertNormalGreen;
+            bool normalizeColors = mtrl.ShaderPack != EShaderPack.Skin;
 
             await Task.Run(() =>
             {
@@ -233,11 +234,26 @@ namespace xivModdingFramework.Models.ModelTextures
                             baseNormalColor.Green = 1.0f - baseNormalColor.Green;
 
                         var shaderResult = shaderFn(baseDiffuseColor, baseNormalColor, baseMultiColor, baseIndexColor);
+
                         Color4 diffuseColor = shaderResult.Diffuse;
                         Color4 normalColor = shaderResult.Normal;
                         Color4 specularColor = shaderResult.Specular;
                         Color4 alphaColor = shaderResult.Alpha;
                         Color4 emissiveColor = shaderResult.Emissive;
+
+                        // Adjust non-skin colors to better match FFXIV rendering
+                        if (normalizeColors)
+                        {
+                            diffuseColor.Red = (float)Math.Sqrt(diffuseColor.Red);
+                            diffuseColor.Green = (float)Math.Sqrt(diffuseColor.Green);
+                            diffuseColor.Blue = (float)Math.Sqrt(diffuseColor.Blue);
+                            specularColor.Red = (float)Math.Sqrt(specularColor.Red);
+                            specularColor.Green = (float)Math.Sqrt(specularColor.Green);
+                            specularColor.Blue = (float)Math.Sqrt(specularColor.Blue);
+                            emissiveColor.Red = (float)Math.Sqrt(emissiveColor.Red);
+                            emissiveColor.Green = (float)Math.Sqrt(emissiveColor.Green);
+                            emissiveColor.Blue = (float)Math.Sqrt(emissiveColor.Blue);
+                        }
 
                         // White out the opacity channels where appropriate.
                         specularColor.Alpha = 1.0f;
